@@ -1,48 +1,64 @@
-import streamlit as st
 import easyocr
-from PIL import Image
+import re
 import numpy as np
 
-st.set_page_config(page_title="SmartBet AI OCR Bot", layout="wide")
-st.title("SmartBet AI OCR Bot v2.5")
-st.markdown("**Załaduj screen z Betclic – bot rozpozna kursy, zakłady, wynik i zasugeruje najlepszy zakład.**")
+# Funkcja do obliczania prawdopodobieństwa z kursu
+def calculate_probability(odd):
+    return 1 / odd
 
-uploaded_file = st.file_uploader("Wgraj screena (Betclic)", type=["png", "jpg", "jpeg"])
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Załadowany screen", use_column_width=True)
+# Funkcja do wykrywania typów zakładów z obrazu
+def analyze_bet_type(image_path):
+    reader = easyocr.Reader(['pl', 'en'])  # Wybieramy języki: polski, angielski
+    result = reader.readtext(image_path)
 
-    with st.spinner("Analiza obrazu..."):
-        reader = easyocr.Reader(['pl', 'en'], gpu=False)
-        result = reader.readtext(np.array(image), detail=0)
+    # Typy zakładów, które chcemy rozpoznać
+    bet_types = {
+        '1X2': r"(Wygra drużyna A|Remis|Wygra drużyna B)",
+        'Handicap': r"(\+|\-)\d+",
+        'Over/Under': r"(Powyżej|Ponżej)\s\d+(\.\d+)?"
+    }
 
-    st.subheader("Wykryty tekst:")
-    clean_lines = [line.strip() for line in result if len(line.strip()) > 0]
-    for line in clean_lines:
-        st.text(line)
+    detected_bet_types = []
+    odds = []  # Przechowujemy kursy
+    # Analiza wykrytych tekstów
+    for (_, text, _) in result:
+        for bet_type, pattern in bet_types.items():
+            if re.search(pattern, text, re.IGNORECASE):
+                detected_bet_types.append((bet_type, text))
+        # Szukamy kursów
+        odds_match = re.search(r"\d+\.\d+", text)
+        if odds_match:
+            odds.append(float(odds_match.group()))
 
-    st.subheader("Szacowanie kursów i prawdopodobieństw:")
-    odds = [float(w.replace(",", ".")) for w in clean_lines if w.replace(",", ".").replace(".", "").isdigit()]
-    labels = ["1", "X", "2", "Over", "Under", "BTTS", "DoubleChance"]
-    grouped = dict(zip(labels, odds[:len(labels)]))
+    return detected_bet_types, odds
 
-    fair_probs = {k: 1/v for k, v in grouped.items()}
-    margin = sum(fair_probs.values())
-    normalized_probs = {k: round((p / margin) * 100, 2) for k, p in fair_probs.items()}
+# Funkcja do sugerowania najlepszych zakładów na podstawie kursów
+def suggest_best_bet(odds, bet_types):
+    probabilities = [calculate_probability(odd) for odd in odds]
+    
+    best_bet_index = np.argmax(probabilities)  # Największe prawdopodobieństwo
+    best_bet = bet_types[best_bet_index]
+    best_odds = odds[best_bet_index]
+    best_probability = probabilities[best_bet_index] * 100
 
-    for bet, prob in normalized_probs.items():
-        st.write(f"**{bet}** — Szansa: {prob}% — Kurs: {grouped[bet]}")
+    print("Suggested Bet:")
+    print(f"Zakład: {best_bet} | Kurs: {best_odds} | Prawdopodobieństwo: {best_probability:.2f}%")
+    return best_bet, best_odds, best_probability
 
-    best_bet = max(normalized_probs, key=normalized_probs.get)
-    value = round((normalized_probs[best_bet]/100) * grouped[best_bet], 2)
+# Przykład użycia
+def main():
+    image_path = 'screen_from_betclic.png'  # Ścieżka do obrazu z Betclic
+    bet_types, odds = analyze_bet_type(image_path)
+    
+    if not bet_types:
+        print("Nie wykryto żadnych typów zakładów.")
+        return
 
-    st.subheader("Rekomendacja:")
-    st.markdown(f"**Obstaw: {best_bet}** — Value: `{value}`")
+    print("Wykryte typy zakładów:", bet_types)
+    print("Wykryte kursy:", odds)
 
-    if value > 1.05:
-        st.success("To wygląda na **value bet**!")
-    else:
-        st.info("Brak oczywistego value — graj ostrożnie.")
+    if odds:
+        suggest_best_bet(odds, [bet_type[1] for bet_type in bet_types])  # Sugerowanie najlepszego zakładu
 
-else:
-    st.info("Wgraj screena, by rozpocząć analizę.")
+if __name__ == "__main__":
+    main()
