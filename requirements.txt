@@ -1,3 +1,4 @@
-matplotlib
 streamlit
-pip install pytesseract pillow opencv-python streamlit
+pillow
+opencv-python
+pytesseract
