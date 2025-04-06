@@ -1,5 +1,5 @@
 streamlit
 easyocr
-Pillow
-numpy
 torch
+pillow
+numpy
