@@ -1,6 +1,10 @@
 import streamlit as st
 
-# Funkcja obliczająca value bet (przykład)
+# Funkcja obliczająca prawdopodobieństwo na podstawie kursów bukmacherskich
+def odds_to_probability(odds):
+    return 1 / odds
+
+# Funkcja obliczająca value bet
 def calculate_value_bet(odds_1, odds_2, odds_draw, prob_1, prob_2, prob_draw):
     expected_value_1 = (prob_1 * odds_1) - 1
     expected_value_2 = (prob_2 * odds_2) - 1
@@ -17,16 +21,19 @@ odds_1 = st.number_input("Kurs dla drużyny 1", min_value=1.0)
 odds_2 = st.number_input("Kurs dla drużyny 2", min_value=1.0)
 odds_draw = st.number_input("Kurs na remis", min_value=1.0)
 
-prob_1 = st.slider("Prawdopodobieństwo wygranej drużyny 1 (%)", 0, 100, 50)
-prob_2 = st.slider("Prawdopodobieństwo wygranej drużyny 2 (%)", 0, 100, 50)
-prob_draw = st.slider("Prawdopodobieństwo remisu (%)", 0, 100, 0)
+# Obliczanie prawdopodobieństw na podstawie kursów
+prob_1 = odds_to_probability(odds_1)
+prob_2 = odds_to_probability(odds_2)
+prob_draw = odds_to_probability(odds_draw)
+
+# Normalizacja prawdopodobieństw (aby ich suma wynosiła 1)
+total_prob = prob_1 + prob_2 + prob_draw
+prob_1 /= total_prob
+prob_2 /= total_prob
+prob_draw /= total_prob
 
 # Przeliczenie i wynik
 if st.button("Oblicz Value Bet"):
-    prob_1 /= 100
-    prob_2 /= 100
-    prob_draw /= 100
-    
     value_bet = calculate_value_bet(odds_1, odds_2, odds_draw, prob_1, prob_2, prob_draw)
     
     st.subheader("Wyniki Value Bet")
