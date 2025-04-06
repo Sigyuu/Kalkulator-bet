@@ -1,75 +1,92 @@
 import streamlit as st
+import matplotlib.pyplot as plt
 
-st.title("SmartBet AI – Analiza Value Bet (Betclic)")
+# Funkcja do obliczania prawdopodobieństwa na podstawie kursów
+def calculate_probability_from_odds(odds):
+    return 1 / odds
 
-st.markdown("### Wprowadź kursy z Betclic:")
+# Funkcja do wykrywania value betów
+def detect_value_bet(probability, odds):
+    fair_odds = 1 / probability
+    if odds > fair_odds:
+        return True  # Value bet found
+    else:
+        return False  # No value bet
 
-# Sekcja 1X2
-st.subheader("1X2 – Zwycięzca meczu")
-odds_1 = st.number_input("Kurs na drużynę 1", min_value=1.01)
-odds_x = st.number_input("Kurs na remis", min_value=1.01)
-odds_2 = st.number_input("Kurs na drużynę 2", min_value=1.01)
+# Funkcja do generowania rekomendacji zakładów
+def recommend_bet(odds, probability):
+    fair_odds = 1 / probability
+    if odds > fair_odds:
+        return "Value Bet: Obstawiaj"
+    else:
+        return "Brak value betu: Zrezygnuj z tego zakładu"
 
-# Sekcja Over/Under
-st.subheader("Over/Under – Liczba goli/punktów")
-odds_over = st.number_input("Kurs na Over (np. +2.5)", min_value=1.01)
-odds_under = st.number_input("Kurs na Under (np. -2.5)", min_value=1.01)
+# Funkcja do analizy na żywo meczu (na podstawie wyniku i minuty)
+def live_match_analysis(score, time):
+    if time > 80:  # Po 80. minucie meczu
+        if score[0] > score[1]:  # Drużyna 1 prowadzi
+            return "Drużyna 1 ma większe szanse na wygraną"
+        else:
+            return "Drużyna 2 ma większe szanse na wygraną"
+    else:
+        return "Mecz w toku, szanse równomierne"
 
-# Sekcja Handicap
-st.subheader("Handicap (np. +1.5, -1.5)")
-odds_handicap_home = st.number_input("Kurs na gospodarzy z handicapem", min_value=1.01)
-odds_handicap_away = st.number_input("Kurs na gości z handicapem", min_value=1.01)
+# Funkcja do wyświetlania wyników na stronie Streamlit
+def display_bet_recommendations(odds_team_1, odds_team_2, probability_team_1, probability_team_2):
+    st.title("Rekomendacje zakładów")
+    
+    # Obliczanie prawdopodobieństw
+    probability_1 = calculate_probability_from_odds(odds_team_1)
+    probability_2 = calculate_probability_from_odds(odds_team_2)
+    
+    # Wykrywanie value betów
+    value_bet_1 = detect_value_bet(probability_team_1, odds_team_1)
+    value_bet_2 = detect_value_bet(probability_team_2, odds_team_2)
+    
+    st.write(f"Prawdopodobieństwo wygranej drużyny 1: {probability_1:.2f}")
+    st.write(f"Prawdopodobieństwo wygranej drużyny 2: {probability_2:.2f}")
+    
+    if value_bet_1:
+        st.write("Value Bet! Obstawiaj drużynę 1.")
+    if value_bet_2:
+        st.write("Value Bet! Obstawiaj drużynę 2.")
+    
+    # Propozycje zakładów
+    st.write(recommend_bet(odds_team_1, probability_team_1))
+    st.write(recommend_bet(odds_team_2, probability_team_2))
 
-# Sekcja BTTS
-st.subheader("BTTS – Obie drużyny strzelą")
-odds_btts_yes = st.number_input("Kurs na TAK", min_value=1.01)
-odds_btts_no = st.number_input("Kurs na NIE", min_value=1.01)
+# Funkcja do rysowania wykresu zmieniających się kursów
+def plot_odds(odds_data):
+    times = odds_data['times']
+    odds = odds_data['odds']
+    plt.plot(times, odds)
+    plt.title('Zmiana kursów w czasie')
+    plt.xlabel('Czas')
+    plt.ylabel('Kursy')
+    st.pyplot(plt)
 
-# Sekcja Double Chance
-st.subheader("Double Chance")
-odds_1x = st.number_input("Kurs 1X", min_value=1.01)
-odds_12 = st.number_input("Kurs 12", min_value=1.01)
-odds_x2 = st.number_input("Kurs X2", min_value=1.01)
+# Interfejs użytkownika w Streamlit
+def main():
+    # Wprowadź kursy drużyn i ich prawdopodobieństwa
+    st.sidebar.header("Wprowadź dane o kursach")
+    odds_team_1 = st.sidebar.number_input("Kurs na drużynę 1", min_value=1.0, value=2.5)
+    odds_team_2 = st.sidebar.number_input("Kurs na drużynę 2", min_value=1.0, value=3.0)
+    
+    probability_team_1 = st.sidebar.number_input("Prawdopodobieństwo wygranej drużyny 1", min_value=0.0, max_value=1.0, value=0.4)
+    probability_team_2 = st.sidebar.number_input("Prawdopodobieństwo wygranej drużyny 2", min_value=0.0, max_value=1.0, value=0.5)
+    
+    # Wyświetlenie rekomendacji
+    display_bet_recommendations(odds_team_1, odds_team_2, probability_team_1, probability_team_2)
+    
+    # Wprowadź dane dla wykresu kursów
+    st.sidebar.header("Wprowadź dane do wykresu")
+    times = st.sidebar.text_area("Czas", "0,10,20,30,40,50")  # Przykładowe dane
+    odds = st.sidebar.text_area("Kursy", "2.5,2.6,2.7,2.8,2.9,3.0")  # Przykładowe dane
+    
+    times = [int(t) for t in times.split(',')]
+    odds = [float(o) for o in odds.split(',')]
+    
+    plot_odds({'times': times, 'odds': odds})
 
-# Sekcja Draw No Bet
-st.subheader("Draw No Bet (Remis = zwrot)")
-odds_dnb_1 = st.number_input("Kurs na drużynę 1", min_value=1.01)
-odds_dnb_2 = st.number_input("Kurs na drużynę 2", min_value=1.01)
-
-# --- Funkcja konwertująca kursy na prawdopodobieństwo i value bet ---
-def convert_and_value(odds_dict):
-    results = {}
-    total_inverse = sum(1/o for o in odds_dict.values())
-    for name, odds in odds_dict.items():
-        implied_prob = (1 / odds) / total_inverse  # skalowane
-        expected_value = (implied_prob * odds) - 1
-        results[name] = round(expected_value * 100, 2)
-    return results
-
-# Przycisk obliczający
-if st.button("Oblicz Value Bet dla wszystkich rynków"):
-    st.subheader("Wyniki Value Bet:")
-
-    # 1X2
-    market_1x2 = {"Drużyna 1": odds_1, "Remis": odds_x, "Drużyna 2": odds_2}
-    st.write("**1X2:**", convert_and_value(market_1x2))
-
-    # Over/Under
-    market_ou = {"Over": odds_over, "Under": odds_under}
-    st.write("**Over/Under:**", convert_and_value(market_ou))
-
-    # Handicap
-    market_hc = {"Gospodarze": odds_handicap_home, "Goście": odds_handicap_away}
-    st.write("**Handicap:**", convert_and_value(market_hc))
-
-    # BTTS
-    market_btts = {"Tak": odds_btts_yes, "Nie": odds_btts_no}
-    st.write("**BTTS:**", convert_and_value(market_btts))
-
-    # Double Chance
-    market_dc = {"1X": odds_1x, "12": odds_12, "X2": odds_x2}
-    st.write("**Double Chance:**", convert_and_value(market_dc))
-
-    # Draw No Bet
-    market_dnb = {"Drużyna 1": odds_dnb_1, "Drużyna 2": odds_dnb_2}
-    st.write("**Draw No Bet:**", convert_and_value(market_dnb))
+if __name__ == "__main__":
+    main()
